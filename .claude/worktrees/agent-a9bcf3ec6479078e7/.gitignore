@@ -1,0 +1,11 @@
+src/assets
+src/components
+node_modules
+dist
+.vscode
+.idea
+.DS_Store
+*.log 
+public/
+logs/
+upload/
