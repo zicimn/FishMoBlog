@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+@theme {
+  /* 中文优先的字体栈：Inter 有则用，中文回落到系统字体 */
+  --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-slate-950 text-white antialiased;
+  }
+
+  ::selection {
+    background: rgb(56 189 248 / 0.3);
+  }
+}
+
+/* 卡片入场：配合 index.vue 里的 animation-delay 做错峰 */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: rise 0.7s cubic-bezier(0.22, 0.68, 0.32, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-rise {
+    animation: none;
+  }
+}
+
+/* ---------- 文章正文（后台编辑器产出的原始 HTML） ---------- */
+/* 没引 @tailwindcss/typography：这里只需要一套贴合玻璃卡片的排版，
+   引插件要改 preflight 且会给每个标签加大量默认样式，反而更难控。 */
+.article-content {
+  font-size: 0.9375rem;
+  line-height: 1.9;
+  color: rgb(255 255 255 / 0.75);
+  overflow-wrap: anywhere;
+}
+
+.article-content > * + * {
+  margin-top: 1.15em;
+}
+
+.article-content h1,
+.article-content h2,
+.article-content h3,
+.article-content h4 {
+  color: #fff;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1.8em;
+  /* 目录跳转时留出顶部空间（进度条很细，不遮内容，但滚动落点更舒服） */
+  scroll-margin-top: 6rem;
+}
+
+.article-content h1 {
+  font-size: 1.75rem;
+}
+
+.article-content h2 {
+  font-size: 1.4rem;
+}
+
+.article-content h3 {
+  font-size: 1.15rem;
+}
+
+.article-content a {
+  color: rgb(125 211 252);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.article-content strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.article-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5rem auto;
+  border-radius: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.article-content ul,
+.article-content ol {
+  padding-left: 1.5rem;
+}
+
+.article-content ul {
+  list-style: disc;
+}
+
+.article-content ol {
+  list-style: decimal;
+}
+
+.article-content li + li {
+  margin-top: 0.35rem;
+}
+
+.article-content blockquote {
+  border-left: 2px solid rgb(125 211 252 / 0.5);
+  padding-left: 1rem;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.article-content code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background: rgb(2 6 23 / 0.6);
+  padding: 0.15em 0.4em;
+  border-radius: 0.35rem;
+}
+
+.article-content pre {
+  background: rgb(2 6 23 / 0.75);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+}
+
+.article-content pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.article-content hr {
+  border-color: rgb(255 255 255 / 0.1);
+  margin: 2rem 0;
+}
+
+.article-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.article-content th,
+.article-content td {
+  border: 1px solid rgb(255 255 255 / 0.1);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.article-content th {
+  background: rgb(255 255 255 / 0.05);
+  color: #fff;
+}
+
+/* ---------- 评论内容（后端已做 nh3 白名单消毒，仍按纯展示处理） ---------- */
+.comment-content {
+  overflow-wrap: anywhere;
+}
+
+.comment-content > * + * {
+  margin-top: 0.5em;
+}
+
+.comment-content a {
+  color: rgb(125 211 252);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.comment-content code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: rgb(2 6 23 / 0.6);
+  padding: 0.1em 0.35em;
+  border-radius: 0.3rem;
+}
+
+.comment-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
