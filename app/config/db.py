@@ -1,5 +1,3 @@
-import os
-
 from sqlalchemy.ext.asyncio import async_sessionmaker,AsyncSession,create_async_engine
 from sqlalchemy.orm import declarative_base
 from config.security import ASYNC_DATABASE_URL
@@ -26,9 +24,9 @@ async def get_db():
     async with AsyncSessionLocal() as session:
         try:
             yield session
-            await session.commit()
-        except Exception as e:
+            # 只读请求没有待写变更，无需提交（避免 GET 也开写事务）。
+            if session.new or session.dirty or session.deleted:
+                await session.commit()
+        except Exception:
             await session.rollback()
-            raise e
-        finally:
-            await session.close()
+            raise

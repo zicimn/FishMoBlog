@@ -18,6 +18,7 @@ class Comment(Base):
     __table_args__ = (
         Index("idx_comment_article", "article_id"),
         Index("idx_comment_parent", "parent_id"),
+        Index("idx_comment_user", "user_id"),
         Index("idx_comment_status", "status"),
         {"comment": "评论表"},
     )
@@ -31,6 +32,16 @@ class Comment(Base):
         Integer, ForeignKey("comment.id", ondelete="CASCADE"), comment="父评论ID，NULL 表示顶层评论"
     )
 
+    # 已登录用户的评论关联到 user.id；访客评论与本次改造前的存量行均为 NULL。
+    # ON DELETE SET NULL：删号时保留评论正文，仅断开链接，昵称/头像靠下面的快照字段兜底。
+    user_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="评论者用户ID（NULL 表示访客或历史评论）",
+    )
+
+    # user_name / user_avatar 是发布当时的快照，用户日后改名/换头像不影响历史评论展示。
     user_name: Mapped[str] = mapped_column(String(50), nullable=False, comment="评论者昵称")
     user_email: Mapped[Optional[str]] = mapped_column(String(100), comment="评论者邮箱（不公开）")
     user_avatar: Mapped[Optional[str]] = mapped_column(String(500), comment="评论者头像")

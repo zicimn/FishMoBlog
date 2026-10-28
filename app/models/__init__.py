@@ -1,7 +1,5 @@
-from .associations import article_column, column_category
 from .user import User
 from .category import Category
-from .column import BlogColumn
 from .article import (
     Article,
     STATUS_DRAFT,
@@ -16,16 +14,13 @@ from .comment import (
     STATUS_PENDING as COMMENT_STATUS_PENDING,
 )
 
+
 __all__ = [
-    # 表 / 模型
-    "article_column",
-    "column_category",
+    # 模型
     "User",
     "Category",
-    "BlogColumn",
     "Article",
     "Comment",
-    "Friend",
     # 文章状态
     "STATUS_NORMAL",
     "STATUS_HIDDEN",

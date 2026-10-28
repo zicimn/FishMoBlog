@@ -8,9 +8,8 @@ from config.db import Base
 
 if TYPE_CHECKING:
     from .category import Category
-    from .column import BlogColumn
 
-# status 取值（与前端 articleStatusMap 一致）
+
 STATUS_NORMAL = 1  # 正常，对外可见
 STATUS_HIDDEN = 2  # 隐藏，仅后台可见
 STATUS_DRAFT = 3  # 草稿，仅后台可见
@@ -26,7 +25,6 @@ class Article(Base):
         Index("idx_article_category", "category_id"),
         Index("idx_article_status", "status"),
         Index("idx_article_created", "created_at"),
-        # Index("idx_article_weight", "weight"),
         {"comment": "文章表"},
     )
 
@@ -34,7 +32,13 @@ class Article(Base):
     path: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, comment="访问路径(slug)")
     title: Mapped[str] = mapped_column(String(255), nullable=False, comment="标题")
     description: Mapped[Optional[str]] = mapped_column(String(500), comment="摘要")
-    thumbnail: Mapped[Optional[str]] = mapped_column(String(500), comment="封面图")
+    cover: Mapped[Optional[str]] = mapped_column(String(500), comment="封面图(URL)")
+    # 只存 URL 的话，换封面/删文章时云端旧图就再也定位不到了（URL 里虽有路径，
+    # 但推导 public_id 依赖 URL 拼接规则与转换参数，随时会失效）。因此把 public_id
+    # 一并落库，作为云端资源的唯一清理凭据。
+    cover_public_id: Mapped[Optional[str]] = mapped_column(
+        String(255), comment="封面在云存储的 public_id"
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False, comment="正文 HTML")
     # 文章页自定义背景色（CSS 颜色值），留空则用主题默认背景
     style: Mapped[Optional[str]] = mapped_column(String(50), comment="文章背景色")
@@ -54,10 +58,5 @@ class Article(Base):
     category: Mapped[Optional["Category"]] = relationship(
         "Category", lazy="selectin", passive_deletes=True
     )
-    columns: Mapped[List["BlogColumn"]] = relationship(
-        "BlogColumn",
-        secondary="article_column",
-        back_populates="articles",
-        lazy="selectin",
-        passive_deletes=True,
-    )
+    
+
