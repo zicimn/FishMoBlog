@@ -4,4 +4,23 @@ __pycache__/
 .vscode/
 .claude/
 .env
+
+#用不上的东西
 tests/
+img/
+CLAUDE.md
+CODE_REVIEW.md
+
+# 前端 admin（Nuxt）：对应 admin/.gitignore，这里再兜一层
+admin/node_modules/
+admin/.nuxt/
+admin/.output/
+admin/dist/
+
+# 博客前台 web（Nuxt）：对应 web/.gitignore，这里再兜一层
+web/node_modules/
+web/.nuxt/
+web/.output/
+web/dist/
+
+run.bat
