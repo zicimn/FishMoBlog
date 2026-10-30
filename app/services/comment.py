@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,7 @@ from config import rate_limit
 from models import Comment,Article,COMMENT_STATUS_NORMAL,STATUS_PUBLIC,User
 from utils.responsed import Busy,NotFound,OpError,info
 from utils.sanitize import sanitize_html
-from schemas import to_item,to_top_item,CommentCreateRequest,to_comment_result
+from schemas import to_item,to_top_item,to_admin_comment,CommentCreateRequest,to_comment_result
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,44 @@ class ComService:
             for comment, article_path, article_title in result.all()
         ]
         return info(data=items)
+
+    async def AdminList(
+        self,
+        page: int,
+        size: int,
+        status: Optional[int] = None,
+    ):
+        """后台评论列表：全部评论（含回复）按时间倒序，扁平分页。
+
+        与 ``GetList`` 的区别：不按文章过滤、不带回复树，也不限制 status ——
+        后台要能看见待审核与已屏蔽的评论，否则没法审核。
+        一次 join 带出文章 path/title，避免逐条再查文章（N+1）。
+        """
+        conditions = []
+        if status is not None:
+            conditions.append(Comment.status == status)
+
+        count_query = select(func.count()).select_from(Comment)
+        if conditions:
+            count_query = count_query.where(*conditions)
+        total = (await self.db.execute(count_query)).scalar_one()
+
+        skip = (page - 1) * size
+        query = (
+            select(Comment, Article.path, Article.title)
+            .join(Article, Article.id == Comment.article_id)
+            .where(*conditions)
+            .order_by(Comment.created_at.desc(), Comment.id.desc())
+            .limit(size)
+            .offset(skip)
+        )
+        rows = (await self.db.execute(query)).all()
+
+        items = [
+            to_admin_comment(comment, article_path, article_title)
+            for comment, article_path, article_title in rows
+        ]
+        return info(data={"total": total, "items": items})
 
     async def _allow_rate(self, client_ip: str, user_id: int) -> bool:
         """IP + 用户双维度固定窗口限流；Redis 故障失败开放（与既有取向一致）。"""

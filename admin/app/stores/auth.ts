@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
-// 后端 to_user_info 只回这三个字段（app/schemas/user.py:55）。
+// 后端 to_user_info 还会返回 id / avatar / bio（前台留言板与资料弹窗使用）；
+// 管理端只取展示与权限判断需要的这三个字段。
 type UserInfo = { email: string; username: string; is_admin: boolean }
 
 const TOKEN_KEY = 'blog_admin_token'

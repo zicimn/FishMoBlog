@@ -2,8 +2,10 @@ from fastapi import APIRouter
 
 from .article import router as article_router
 from .auth import router as auth_router
+from .user import router as user_router
 from .comments import router as comments_router
 from .admin import router as admin_router
+from .msg import router as msg_router
 
 service_router = APIRouter()
 
@@ -13,8 +15,10 @@ service_router = APIRouter()
 for r in (
     article_router,
     auth_router,
+    user_router,
     comments_router,
     admin_router,
+    msg_router,
 ):
     service_router.include_router(r)
 

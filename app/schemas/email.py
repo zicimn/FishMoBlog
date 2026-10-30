@@ -12,3 +12,5 @@ class SendCodeRequest(BaseModel):
     # 与 User.email 的列宽保持一致（String(100)）：先由 Pydantic 挡住超长输入，
     # 避免它一路流到 Redis key 与邮件头里。
     email: EmailStr = Field(max_length=100)
+    # 本端点只发注册码。注销码走登录态的 POST /user/delete-code，避免公开
+    # 接口被用来向任意邮箱投递「注销账号」警告邮件。

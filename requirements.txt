@@ -1,0 +1,47 @@
+# FastAPI 后端运行时依赖（app/ 包根，启动：cd app && python main.py）
+#
+# 生成日期：2026-10-29
+# Python 版本：3.12.7
+# 由 D:\vscode\blog\.venv 的 pip list 与 app/ 下实际 import 整理，
+# 传递依赖未逐条列出（仅对运行时必需但不会被自动拉取的项做显式固定，见各组注释）。
+# 安装：pip install -r requirements.txt
+#
+# 注意：本文件只覆盖 app/（FastAPI 后端），不含 admin/ 与 web/ 的 Node 依赖，
+# 也不含 tests/ 专用包（pytest、httpx、PyMySQL 的同步直连用法）。
+
+# --- Web 框架 / ASGI 服务器 ---
+fastapi==0.133.1
+uvicorn==0.41.0
+
+# --- 数据库（SQLAlchemy 异步 ORM） ---
+SQLAlchemy==2.0.47
+aiomysql==0.3.2
+# 显式固定：AsyncEngine 运行时依赖 greenlet，不能只靠 sqlalchemy 的平台条件依赖兜底
+greenlet==3.3.2
+
+# --- 缓存 ---
+redis==7.3.0
+
+# --- 认证 / 密码哈希 ---
+python-jose==3.5.0
+passlib==1.7.4
+# 显式固定：passlib 的 argon2 handler 需要，不会被 passlib 自动安装
+argon2-cffi==25.1.0
+
+# --- 数据校验 ---
+pydantic==2.12.5
+# 显式固定：pydantic 的 EmailStr 需要，不会被 pydantic 自动安装
+email-validator==2.3.0
+
+# --- 配置 ---
+python-dotenv==1.2.1
+
+# --- 邮件（验证码 / 注销通知） ---
+resend==2.35.0
+
+# --- 图片上传 / 处理 ---
+cloudinary==1.45.0
+pillow==12.1.1
+
+# --- HTML 消毒（评论 / 留言） ---
+nh3==0.3.7

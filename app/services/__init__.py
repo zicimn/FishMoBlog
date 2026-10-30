@@ -6,3 +6,5 @@ from .auth import AuthService
 from .category import CatService
 from .comment import ComService
 from .image import ImageService
+from .msg import MsgService
+from .user import UserService

@@ -1,4 +1,7 @@
-"""邮箱验证码的发送与校验（硬注册的核心）。
+"""邮箱验证码的发送与校验（硬注册 / 注销账号共用）。
+
+验证码按用途（``register`` / ``delete``）隔离在各自的 Redis 命名空间，
+两种码互不通用；新增用途需同时补 ``_MAIL_TEMPLATES``。
 
 设计约定（逐条对应审核要求）：
 
@@ -59,14 +62,34 @@ _SEND_RATE_WINDOW = 3600
 #     大小写不同就会「明明收到码却报验证码已过期」；
 #   - 同理，email 维度的限流/冷却若区分大小写，换个大小写就能绕过 5 次/小时。
 # 反过来（只在一处 lower）才是真正会算出两套 key 的写法。
-_CODE_KEY = "email:code:{email}"
-_ATTEMPTS_KEY = "email:code:attempts:{email}"
-_COOLDOWN_KEY = "email:code:cooldown:{email}"
+# 用途隔离：注册与注销共用同一套 Redis，key 必须带 purpose。否则同一枚
+# 「注册验证码」可以直接拿去注销账号，两个流程的 TTL / 错误次数 / 冷却也会
+# 互相占用（注册流程在查重前就消费验证码，注销用户会被迫等冷却重收）。
+_CODE_KEY = "email:code:{purpose}:{email}"
+_ATTEMPTS_KEY = "email:code:attempts:{purpose}:{email}"
+_COOLDOWN_KEY = "email:code:cooldown:{purpose}:{email}"
+
+# 允许的验证码用途。新增用途要同时补下面的邮件模板。
+_PURPOSES = ("register", "delete")
+_PURPOSE_LABELS = {"register": "注册", "delete": "注销"}
+
+
+def _purpose_label(purpose: str) -> str:
+    """日志用中文用途名；日志里只出现用途与邮箱，不出现验证码明文（S6）。"""
+    return _PURPOSE_LABELS.get(purpose, purpose)
 
 
 def _key_email(email: str) -> str:
     """Redis key 用的 email 形态（小写归一）。落库与投递不受影响。"""
     return (email or "").strip().lower()
+
+
+def _normalize_purpose(purpose: str) -> str:
+    """校验并归一验证码用途；未知用途直接 400，避免拼出无模板的 key。"""
+    value = (purpose or "register").strip().lower()
+    if value not in _PURPOSES:
+        raise BadRequest("验证码用途不合法")
+    return value
 
 # 「比较 + 删除」用 Lua 保证原子性：先 GET 再 DEL 之间存在竞态，两个并发请求
 # 可能都通过校验。这里在 Python 侧先用 compare_digest 做恒定时间比较（S4），
@@ -90,23 +113,41 @@ return n
 """
 
 
-def _render_html(code: str) -> str:
+# 邮件文案按用途分流。注销是不可逆操作，模板必须把后果写清楚：这封邮件
+# 不能继续用「注册」措辞，否则用户会误以为有人拿自己的邮箱注册。
+_MAIL_TEMPLATES = {
+    "register": {
+        "subject": "注册验证码",
+        "title": "注册验证码",
+        "intro": "你正在注册本站账号，请在注册页面填写以下验证码：",
+        "footer": "验证码 5 分钟内有效，请勿转发给他人。若非本人操作，请忽略本邮件。",
+    },
+    "delete": {
+        "subject": "注销账号验证码",
+        "title": "注销账号验证码",
+        "intro": "你正在注销本站账号。输入该验证码后，账号与登录状态将被永久删除，且无法恢复：",
+        "footer": "验证码 5 分钟内有效。若非本人操作，请勿向任何人提供该验证码，并尽快修改账号密码。",
+    },
+}
+
+
+def _render_html(code: str, purpose: str = "register") -> str:
     """简单邮件模板：只做内联样式，不引外部脚本/图片（邮件客户端会拦截外链）。"""
+    tpl = _MAIL_TEMPLATES[purpose]
     return (
         '<div style="max-width:480px;margin:0 auto;padding:24px;'
         'font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#222">'
-        '<h2 style="margin:0 0 12px;font-size:20px">注册验证码</h2>'
-        '<p style="margin:0 0 16px;line-height:1.6">你正在注册本站账号，'
-        "请在注册页面填写以下验证码：</p>"
+        f'<h2 style="margin:0 0 12px;font-size:20px">{tpl["title"]}</h2>'
+        f'<p style="margin:0 0 16px;line-height:1.6">{tpl["intro"]}</p>'
         f'<p style="margin:0 0 16px;font-size:32px;font-weight:700;'
         f'letter-spacing:8px">{code}</p>'
         '<p style="margin:0;color:#888;font-size:13px;line-height:1.6">'
-        "验证码 5 分钟内有效，请勿转发给他人。若非本人操作，请忽略本邮件。</p>"
+        f'{tpl["footer"]}</p>'
         "</div>"
     )
 
 
-def _send_email_sync(to_email: str, code: str) -> None:
+def _send_email_sync(to_email: str, code: str, purpose: str = "register") -> None:
     """同步发送验证码邮件（仅允许在 threadpool 中调用）。
 
     异常**不在这里吞掉**：调用方需要知道「没发出去」从而跳过写缓存（S3）。
@@ -117,26 +158,30 @@ def _send_email_sync(to_email: str, code: str) -> None:
         {
             "from": RESEND_FROM,
             "to": [to_email],
-            "subject": "注册验证码",
-            "html": _render_html(code),
+            "subject": _MAIL_TEMPLATES[purpose]["subject"],
+            "html": _render_html(code, purpose),
         }
     )
 
 
 class EmailService:
-    async def SendCode(self, email: str, request: Request):
-        """发送注册验证码。
+    async def SendCode(self, email: str, request: Request, purpose: str = "register"):
+        """发送验证码（``purpose`` 区分注册 / 注销）。
+
+        缓存按用途隔离：同一位用户可以先收一枚注册码、再收一枚注销码，互不
+        覆盖；反过来，注册码也**不能**拿去注销账号。
 
         缓存命中时**复用**已有验证码、不重新生成、不续期 TTL（重发只重复投递
         同一封内容），避免前端显示的倒计时被一次重发悄悄拉回 300 秒。
         """
+        purpose = _normalize_purpose(purpose)
         email = (email or "").strip()
         key_email = _key_email(email)
         client_ip = request.client.host if request.client else "unknown"
 
-        code_key = _CODE_KEY.format(email=key_email)
-        attempts_key = _ATTEMPTS_KEY.format(email=key_email)
-        cooldown_key = _COOLDOWN_KEY.format(email=key_email)
+        code_key = _CODE_KEY.format(purpose=purpose, email=key_email)
+        attempts_key = _ATTEMPTS_KEY.format(purpose=purpose, email=key_email)
+        cooldown_key = _COOLDOWN_KEY.format(purpose=purpose, email=key_email)
 
         # S5：email 与 IP 双维度限流。Redis 不可用时失败开放（沿用项目既定取向），
         # 但必须留下 error 级别告警，不能静默降级。
@@ -180,13 +225,15 @@ class EmailService:
             # 缓存命中：直接复用原码，不续期。若这里重发失败，原码仍然有效，
             # 只释放冷却让用户能立刻重试，不删除缓存。
             try:
-                await run_in_threadpool(_send_email_sync, email, cached)
+                await run_in_threadpool(_send_email_sync, email, cached, purpose)
             except Exception:
-                logger.error("重发注册验证码邮件失败: to=%s", email, exc_info=True)
+                logger.error(
+                    "重发验证码邮件失败: to=%s purpose=%s", email, purpose, exc_info=True
+                )
                 await self._release_cooldown(cooldown_key)
                 raise AppError("验证码发送失败，请稍后再试")
 
-            logger.info("已向 %s 重发注册验证码（缓存命中，未续期）", email)
+            logger.info("已向 %s 重发%s验证码（缓存命中，未续期）", email, _purpose_label(purpose))
             return info(msg="验证码已发送", data={"expires_in": ttl})
 
         # 缓存未命中 / 已过期：生成新码。S1：secrets，不是 random。
@@ -194,9 +241,11 @@ class EmailService:
 
         # S3：先发送，成功后才写缓存。发送失败时缓存里不会留下任何东西。
         try:
-            await run_in_threadpool(_send_email_sync, email, code)
+            await run_in_threadpool(_send_email_sync, email, code, purpose)
         except Exception:
-            logger.error("发送注册验证码邮件失败: to=%s", email, exc_info=True)
+            logger.error(
+                "发送验证码邮件失败: to=%s purpose=%s", email, purpose, exc_info=True
+            )
             await self._release_cooldown(cooldown_key)
             raise AppError("验证码发送失败，请稍后再试")
 
@@ -213,14 +262,16 @@ class EmailService:
             await self._release_cooldown(cooldown_key)
             raise AppError("验证码服务暂时不可用，请稍后再试")
 
-        logger.info("已向 %s 发送注册验证码", email)
+        logger.info("已向 %s 发送%s验证码", email, _purpose_label(purpose))
         return info(
             msg="验证码已发送",
             data={"expires_in": expires_in if expires_in > 0 else CODE_TTL_SECONDS},
         )
 
-    async def VerifyCode(self, email: str, code: str) -> None:
+    async def VerifyCode(self, email: str, code: str, purpose: str = "register") -> None:
         """校验并**一次性消费**验证码，失败抛 ``BadRequest``(400)。
+
+        验证码按 ``purpose`` 隔离：注册码不能用于注销，反之亦然（见顶部 key 说明）。
 
         消费时机（S7）：校验通过即原子删码，随后才由调用方建号。若建号恰好撞上
         并发唯一索引冲突，用户需要重新获取验证码（受 60 秒冷却约束）。
@@ -233,10 +284,11 @@ class EmailService:
 
         调用方**必须**先确认要建号再调用本方法：这里一旦成功，码就没了。
         """
+        purpose = _normalize_purpose(purpose)
         email = (email or "").strip()
         key_email = _key_email(email)
-        code_key = _CODE_KEY.format(email=key_email)
-        attempts_key = _ATTEMPTS_KEY.format(email=key_email)
+        code_key = _CODE_KEY.format(purpose=purpose, email=key_email)
+        attempts_key = _ATTEMPTS_KEY.format(purpose=purpose, email=key_email)
 
         try:
             stored, ttl = await self._read_code(code_key)
@@ -270,7 +322,7 @@ class EmailService:
 
         # 计数清理是锦上添花，失败不影响「码已被消费」这一事实
         await self._delete_quietly(attempts_key)
-        logger.info("邮箱验证码校验通过: %s", email)
+        logger.info("邮箱验证码校验通过: %s purpose=%s", email, purpose)
 
     # ------------------------------------------------------------------ utils
 

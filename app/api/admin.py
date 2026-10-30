@@ -2,12 +2,18 @@ from typing import Optional
 
 from fastapi import Depends,APIRouter,HTTPException,Query
 
-from deps import GetArticleService, GetAdminUser, GetImageService,GetComService
-from services import ArticleService, ImageService,ComService
+from deps import (
+    GetArticleService,
+    GetAdminUser,
+    GetImageService,
+    GetComService,
+    GetUserService,
+)
+from services import ArticleService, ImageService, ComService, UserService
 from utils import AppError
 from schemas import ArticleSaveRequest,ArticleEditRequest,ImageUploadRequest
 
-# 整个后台分组挂 GetAdminUser：五个端点都是管理操作，逐个加依赖容易漏。
+# 整个后台分组挂 GetAdminUser：所有端点都是管理操作，逐个加依赖容易漏。
 # 用 router 级 dependencies 保证没有任何一个端点被裸奔注册。
 router = APIRouter(
     prefix="/admin",
@@ -78,6 +84,41 @@ async def get_article_by_id(
         return await service.GetId(id, status=True)
     except AppError as e:
         raise HTTPException(status_code=e.status_code, detail=e.msg)
+
+
+# ---- 评论 / 留言管理 -------------------------------------------------------
+# 放在 /admin 下由 router 级 GetAdminUser 统一守卫。评论的公开列表 /comments/{path}
+# 是按文章取回复树的，后台需要一个「全局、扁平分页」的视角，所以单独开一条。
+# 留言列表复用公开的 GET /msg/list（只读、不含 IP），删除走 DELETE /msg/del。
+
+@router.get("/comment/list")
+async def list_comments(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    status: Optional[int] = Query(None, ge=0, le=2, description="0待审核 1正常 2屏蔽"),
+    service: ComService = Depends(GetComService),
+):
+    try:
+        return await service.AdminList(page, size, status)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.msg)
+
+# ---- 用户管理 -------------------------------------------------------------
+# 只读列表：UserService.AdminList 返回全量用户（含邮箱），必须留在 /admin
+# 分组下由 router 级 GetAdminUser 守卫，绝不能挂到公开 router。
+# 自助改资料 / 注销是 /user 下的登录态端点（api/user.py），后台不代改他人账号。
+
+@router.get("/user/list")
+async def list_users(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    service: UserService = Depends(GetUserService),
+):
+    try:
+        return await service.AdminList(page, size)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.msg)
+
 
 # ---- 图片上传 / 删除 -------------------------------------------------------
 # 放在 admin 分组下是刻意的：上传是写操作，必须要求管理员身份。

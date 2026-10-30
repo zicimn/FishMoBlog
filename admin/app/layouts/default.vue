@@ -8,6 +8,9 @@ const route = useRoute()
 const nav = [
   { to: '/articles', label: '文章管理', hint: '列表 · 增删改' },
   { to: '/articles/new', label: '写新文章', hint: '正文 · 状态' },
+  { to: '/comments', label: '评论管理', hint: '列表 · 删除' },
+  { to: '/messages', label: '留言管理', hint: '列表 · 删除' },
+  { to: '/users', label: '用户管理', hint: '列表 · 角色' },
 ]
 
 // 用 startsWith 而不是全等：/articles/12/edit 也要点亮「文章管理」，

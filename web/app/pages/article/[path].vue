@@ -3,7 +3,8 @@ import type { ArticleDetail, Envelope } from '~/types/blog'
 import { buildToc, stripHtml } from '~/utils/content'
 
 const route = useRoute()
-const config = useRuntimeConfig()
+const apiBase = useApiBase()
+const apiBaseLabel = useApiBaseLabel()
 
 const path = computed(() => String(route.params.path ?? ''))
 
@@ -11,7 +12,7 @@ const path = computed(() => String(route.params.path ?? ''))
 // 返回 { msg, code, data: { ...to_detail } }，to_detail 现已带 cover。
 const { data, pending, error, refresh } = await useFetch<Envelope<ArticleDetail>>(
   () => `/article/${encodeURIComponent(path.value)}`,
-  { baseURL: config.public.apiBase, watch: [path] },
+  { baseURL: apiBase, watch: [path] },
 )
 
 const article = computed(() => data.value?.data ?? null)
@@ -149,7 +150,7 @@ watch(
           {{
             is404
               ? '它可能已被删除，或还没有对外公开。'
-              : `请确认后端已启动（${config.public.apiBase}）。`
+              : `请确认后端已启动（${apiBaseLabel}）。`
           }}
         </p>
         <div class="mt-6 flex items-center justify-center gap-3">
@@ -202,7 +203,7 @@ watch(
             <article
               class="animate-rise overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_12px_40px_-16px_rgba(2,6,23,0.9)] backdrop-blur-2xl"
             >
-              <div class="relative h-[247px] sm:h-[327px]">
+              <div class="relative h-[247px] sm:h-[300px]">
                 <img
                   v-if="article.cover"
                   :src="article.cover"

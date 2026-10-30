@@ -13,6 +13,7 @@ from .comment import (
     STATUS_NORMAL as COMMENT_STATUS_NORMAL,
     STATUS_PENDING as COMMENT_STATUS_PENDING,
 )
+from .msg import Msg
 
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "Category",
     "Article",
     "Comment",
+    "Msg",
     # 文章状态
     "STATUS_NORMAL",
     "STATUS_HIDDEN",

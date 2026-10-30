@@ -15,7 +15,7 @@ const USER_KEY = 'fishmo_user'
  * 客户端在 `app:mounted` 之后再由 plugins/auth.client.ts 回填，避免水合不一致。
  */
 export function useAuth() {
-  const config = useRuntimeConfig()
+  const apiBase = useApiBase()
   const token = useState<string>('auth-token', () => '')
   const user = useState<AuthUser | null>('auth-user', () => null)
   // ready 表示「已经尝试读过本地存储」。在那之前不要急着渲染「未登录」，
@@ -26,8 +26,12 @@ export function useAuth() {
 
   function persist(data: AuthData) {
     const nextUser: AuthUser = {
+      id: Number(data.id),
       email: data.email,
       username: data.username,
+      // 后端旧版本 / 本地旧快照可能没有这两个键，统一归一成空串
+      avatar: typeof data.avatar === 'string' ? data.avatar : '',
+      bio: typeof data.bio === 'string' ? data.bio : '',
       is_admin: Boolean(data.is_admin),
     }
     token.value = data.access_token
@@ -38,6 +42,34 @@ export function useAuth() {
         localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
       } catch {
         // 隐私模式 / 配额满：写不进去也不影响本次会话内的登录态
+      }
+    }
+  }
+
+  /**
+   * 资料修改成功后同步本地快照。
+   *
+   * 只改内存里的 user 与 localStorage，不碰令牌。身份与权限仍由后端每次回库
+   * 判定，这里更新的只是「界面展示用」的昵称 / 头像 / 简介。
+   */
+  function applyProfile(data: {
+    username: string
+    avatar?: string | null
+    bio?: string | null
+  }) {
+    if (!user.value) return
+    const nextUser: AuthUser = {
+      ...user.value,
+      username: data.username,
+      avatar: data.avatar ?? '',
+      bio: data.bio ?? '',
+    }
+    user.value = nextUser
+    if (import.meta.client) {
+      try {
+        localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+      } catch {
+        // 与 persist 一致：写不进去不影响本次会话
       }
     }
   }
@@ -70,6 +102,7 @@ export function useAuth() {
       const parsed = JSON.parse(rawUser) as Partial<AuthUser> | null
       if (
         !parsed ||
+        typeof parsed.id !== 'number' ||
         typeof parsed.email !== 'string' ||
         typeof parsed.username !== 'string' ||
         !parsed.email ||
@@ -80,8 +113,12 @@ export function useAuth() {
       }
       token.value = savedToken
       user.value = {
+        id: parsed.id,
         email: parsed.email,
         username: parsed.username,
+        // 旧版快照没有头像 / 简介：缺键按空串处理，不因此把用户踢下线
+        avatar: typeof parsed.avatar === 'string' ? parsed.avatar : '',
+        bio: typeof parsed.bio === 'string' ? parsed.bio : '',
         is_admin: Boolean(parsed.is_admin),
       }
     } catch {
@@ -93,7 +130,7 @@ export function useAuth() {
 
   async function login(email: string, password: string) {
     const res = await $fetch<Envelope<AuthData>>('/auth/login', {
-      baseURL: config.public.apiBase,
+      baseURL: apiBase,
       method: 'POST',
       body: { email, password },
     })
@@ -103,7 +140,7 @@ export function useAuth() {
 
   async function register(payload: RegisterPayload) {
     const res = await $fetch<Envelope<AuthData>>('/auth/register', {
-      baseURL: config.public.apiBase,
+      baseURL: apiBase,
       method: 'POST',
       body: payload,
     })
@@ -114,7 +151,7 @@ export function useAuth() {
   /** 发送注册验证码；返回后端给的过期秒数（用于提示，不用于倒计时）。 */
   async function sendCode(email: string) {
     const res = await $fetch<Envelope<{ expires_in: number }>>('/auth/email-code', {
-      baseURL: config.public.apiBase,
+      baseURL: apiBase,
       method: 'POST',
       body: { email },
     })
@@ -134,7 +171,7 @@ export function useAuth() {
     if (!current) return
     try {
       await $fetch('/auth/logout', {
-        baseURL: config.public.apiBase,
+        baseURL: apiBase,
         method: 'POST',
         headers: { Authorization: `Bearer ${current}` },
       })
@@ -154,5 +191,6 @@ export function useAuth() {
     sendCode,
     logout,
     clear,
+    applyProfile,
   }
 }

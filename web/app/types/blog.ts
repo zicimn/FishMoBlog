@@ -49,9 +49,15 @@ export interface CommentItem {
 
 // POST /auth/login、/auth/register 的 data（app/services/auth.py）。
 // 作者身份一律由后端从登录态取，前端只负责保存令牌与展示用户名。
+// id 用于前台留言板判断「这条留言是不是我的」（昵称不保证唯一）。
 export interface AuthUser {
+  id: number
   email: string
   username: string
+  // 展示字段：留言板「点自己的头像改资料」直接用登录快照预填。
+  // 后端 to_user_info 把 null 归一成空串。
+  avatar: string
+  bio: string
   is_admin: boolean
 }
 
@@ -66,6 +72,22 @@ export interface RegisterPayload {
   username: string
   password: string
   re_password: string
+}
+
+// GET /msg/list 的条目（后端 schemas/msg.py 的 to_mdetail）。
+// content 已经过 nh3 白名单消毒；后端刻意不返回 ip。
+export interface MsgItem {
+  id: number
+  user_id: number | null
+  content: string
+  username: string
+  avatar: string | null
+  created_at: string
+}
+
+export interface MsgListData {
+  total: number
+  items: MsgItem[]
 }
 
 // 后端统一信封：{ msg, code, data }（app/utils/responsed.py 的 info）。

@@ -10,6 +10,8 @@ from services import (
     ComService,
     ImageService,
     EmailService,
+    MsgService,
+    UserService,
 )
 from utils import TokenPayload, get_token_payload
 
@@ -74,3 +76,13 @@ async def GetComService(
     db:AsyncSession = Depends(get_db)
 ):
     return ComService(db)
+
+async def GetMsgService(
+    db:AsyncSession = Depends(get_db)
+):
+    return MsgService(db)
+
+async def GetUserService(
+    db:AsyncSession = Depends(get_db)
+):
+    return UserService(db)

@@ -93,3 +93,25 @@ def to_top_item(comment, article_path: str = "", article_title: str = "") -> dic
         articleTitle=article_title or "",
     )
     return item
+
+
+def to_admin_comment(comment, article_path: str = "", article_title: str = "") -> dict:
+    """管理端评论列表条目（扁平结构，含回复）。
+
+    与 ``to_item`` 不同：不分页树、不拼 ``child``，后台按时间倒序把全部评论
+    （包括回复与待审核/屏蔽状态）铺平展示，便于逐条审核。
+    刻意不返回 ``user_email``：邮箱是本项目的非公开字段，管理列表也用不上。
+    """
+    return {
+        "id": comment.id,
+        "article_id": comment.article_id,
+        "article_path": article_path or "",
+        "article_title": article_title or "",
+        "parent_id": comment.parent_id,
+        "user_id": comment.user_id,
+        "username": comment.user_name,
+        "avatar": comment.user_avatar or "",
+        "content": comment.content,
+        "status": comment.status,
+        "created_at": comment.created_at,
+    }

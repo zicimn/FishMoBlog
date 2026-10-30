@@ -8,9 +8,13 @@ from .article import (
 )
 from .user import (
     to_user_info,
+    to_user_profile,
+    to_admin_user,
     LoginRequest,
     RegisterRequest,
     ResetPwdRequest,
+    UserEditRequest,
+    UserDeleteRequest,
 )
 
 from .image import (
@@ -24,8 +28,14 @@ from .email import (
 from .comment import(
     to_item,
     to_top_item,
+    to_admin_comment,
     to_comment_result,
     CommentCreateRequest,
+)
+
+from .msg import(
+    MsgCreateRequest,
+    to_mdetail,
 )
 
 __all__ = [
@@ -34,15 +44,22 @@ __all__ = [
     "to_admin_detail",
     "to_admin_preview",
     "to_user_info",
+    "to_user_profile",
+    "to_admin_user",
     "LoginRequest",
     "RegisterRequest",
     "ResetPwdRequest",
+    "UserEditRequest",
+    "UserDeleteRequest",
     "ArticleSaveRequest",
     "ArticleEditRequest",
     "ImageUploadRequest",
     "SendCodeRequest",
     "to_item",
     "to_top_item",
+    "to_admin_comment",
     "CommentCreateRequest",
     "to_comment_result",
+    "MsgCreateRequest",
+    "to_mdetail",
 ]

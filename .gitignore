@@ -10,6 +10,8 @@ tests/
 img/
 CLAUDE.md
 CODE_REVIEW.md
+sql/
+nginx.conf
 
 # 前端 admin（Nuxt）：对应 admin/.gitignore，这里再兜一层
 admin/node_modules/

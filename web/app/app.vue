@@ -12,6 +12,9 @@
       <div class="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-transparent to-slate-950/80" />
     </div>
 
+    <!-- 首次进入站点的欢迎画面（每个浏览器会话一次），纯客户端，SSR 不渲染 -->
+    <WelcomeScreen />
+
     <NuxtPage />
   </div>
 </template>

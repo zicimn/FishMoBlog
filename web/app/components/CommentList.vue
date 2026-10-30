@@ -5,7 +5,7 @@ const props = defineProps<{
   path: string
 }>()
 
-const config = useRuntimeConfig()
+const apiBase = useApiBase()
 const { isLoggedIn } = useAuth()
 
 const page = ref(1)
@@ -21,7 +21,7 @@ const replyTo = ref<{ id: number; name: string } | null>(null)
 const { data, pending, error, refresh } = await useFetch<Envelope<CommentItem[]>>(
   () => `/comments/${encodeURIComponent(props.path)}`,
   {
-    baseURL: config.public.apiBase,
+    baseURL: apiBase,
     query: { p: page, size },
     watch: [page, () => props.path],
   },

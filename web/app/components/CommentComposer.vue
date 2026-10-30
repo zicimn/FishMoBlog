@@ -17,7 +17,7 @@ const emit = defineEmits<{
   (e: 'cancel-reply'): void
 }>()
 
-const config = useRuntimeConfig()
+const apiBase = useApiBase()
 const { token, user, ready, isLoggedIn, logout, clear } = useAuth()
 
 const text = ref('')
@@ -91,7 +91,7 @@ async function submit() {
     if (props.replyTo) body.parent_id = props.replyTo.id
 
     await $fetch('/comments', {
-      baseURL: config.public.apiBase,
+      baseURL: apiBase,
       method: 'POST',
       headers: { Authorization: `Bearer ${token.value}` },
       body,
